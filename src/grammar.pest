@@ -1,0 +1,18 @@
+line = { (!NEWLINE ~ ANY)+ }
+
+paragraph = { (line ~ NEWLINE)+ }
+
+atx_header_kind = { "#"{1, 6} }
+atx_header = _{ atx_header_kind ~ SPACE+ ~ line ~ EOL }
+settext_header_kind = { ("=" | "-"){3,} }
+settext_header = _{ line ~ EOL ~ settext_header_kind ~ EOL }
+header = { atx_header | settext_header }
+
+tag_open = _{ "<style>" }
+tag_close = _{ "</style>" }
+tag = !{ tag_open ~ (!tag_close ~ ANY)* ~ tag_close }
+
+grammar = _{ (header | tag | paragraph | NEWLINE+)* }
+
+SPACE = _{ (" " | "\t") }
+EOL = _{ (NEWLINE | SOI | EOI) }
