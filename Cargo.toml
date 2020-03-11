@@ -1,0 +1,20 @@
+[package]
+name = "partial-mixed-markdown"
+version = "0.1.0"
+authors = ["Micha <61242418+modestmicha@users.noreply.github.com>"]
+edition = "2018"
+build = "src/build.rs"
+
+[dependencies]
+anyhow = "1.0.26"
+fehler = "1.0.0-alpha.2"
+
+[build-dependencies]
+anyhow = "1.0.26"
+fehler = "1.0.0-alpha.2"
+proc-macro2 = "1.0.9"
+quote = "1.0.3"
+
+[dev-dependencies]
+dialoguer = "0.5.0"
+difference = "2.0.0"
