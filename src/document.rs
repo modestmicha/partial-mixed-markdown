@@ -65,7 +65,7 @@ impl Document {
                     tag = format!("h{}", token.len());
                 }
                 Rule::settext_header_kind => {
-                    if token.chars().next().unwrap() == '-' {
+                    if token.starts_with('-') {
                         tag = "h2".to_owned();
                     }
                 }
@@ -88,7 +88,7 @@ impl Document {
     }
 
     #[throws(_)]
-    fn add_tag<'i>(&mut self, tag: &str) {
+    fn add_tag(&mut self, tag: &str) {
         self.output.write_all(tag.as_bytes())?;
         self.output.write_all(b"\n")?;
     }
