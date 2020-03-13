@@ -29,27 +29,40 @@ pub struct Document {
 }
 
 impl Document {
-    /// Parse a document from string.
+    /// Parse and process a document from string.
     #[throws(_)]
     pub fn parse(input: &str) -> Self {
         let mut doc = Self::default();
+        doc.process(input)?;
+        doc.post_process()?;
+        doc
+    }
+
+    #[doc(hidden)]
+    #[throws(_)]
+    pub fn parse_without_post_process(input: &str) -> Self {
+        let mut doc = Self::default();
+        doc.process(input)?;
+        doc
+    }
+
+    #[throws(_)]
+    fn process(&mut self, input: &str) {
         let pairs = Grammar::parse(Rule::grammar, &input)?;
         for pair in pairs {
             match pair.as_rule() {
                 Rule::header => {
-                    doc.add_header(pair.into_inner())?;
+                    self.add_header(pair.into_inner())?;
                 }
                 Rule::paragraph => {
-                    doc.add_paragraph(pair.into_inner())?;
+                    self.add_paragraph(pair.into_inner())?;
                 }
                 Rule::tag => {
-                    doc.add_tag(pair.as_str())?;
+                    self.add_tag(pair.as_str())?;
                 }
                 _ => panic!("unexpceted token {:#?}", pair),
             }
         }
-        doc.post_process()?;
-        doc
     }
 
     #[throws(_)]
