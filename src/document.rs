@@ -1,9 +1,12 @@
 use fehler::throws;
 use htmlescape::encode_minimal;
+use kuchiki::parse_html;
+use kuchiki::traits::TendrilSink;
 use lazy_static::lazy_static;
 use pest::{iterators::Pairs, Parser};
 use pest_derive::Parser;
 use regex::Regex;
+use std::io;
 use std::io::prelude::*;
 
 // Make sure it's rebuild when grammar changed.
@@ -45,7 +48,28 @@ impl Document {
                 _ => panic!("unexpceted token {:#?}", pair),
             }
         }
+        doc.post_process()?;
         doc
+    }
+
+    #[throws(_)]
+    fn post_process(&mut self) {
+        let dom = parse_html()
+            .from_utf8()
+            .read_from(&mut io::Cursor::new(&mut self.output))?;
+        for node_data in dom.select("h2").unwrap() {
+            let element = node_data.as_node().as_element().unwrap();
+            element
+                .attributes
+                .borrow_mut()
+                .insert("class", "subtitle".to_owned());
+        }
+        // Serialize dom.
+        self.output.clear();
+        for node_data in dom.select("body > *").unwrap() {
+            node_data.as_node().serialize(&mut self.output)?;
+            self.output.push(b'\n');
+        }
     }
 
     /// Write the resulting html into the IO stream.
