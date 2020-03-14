@@ -1,7 +1,7 @@
 use fehler::throws;
 use htmlescape::encode_minimal;
-use kuchiki::parse_html;
 use kuchiki::traits::TendrilSink;
+use kuchiki::{parse_html, NodeRef};
 use lazy_static::lazy_static;
 use pest::{iterators::Pairs, Parser};
 use pest_derive::Parser;
@@ -23,16 +23,26 @@ fn escape(string: &str) -> String {
     encode_minimal(&RE.replace(string.trim(), " ").to_string())
 }
 
-#[derive(Default)]
+fn new_element<T: AsRef<str>, C: Into<String>>(tag: T, content: C) -> NodeRef {
+    use html5ever::{LocalName, QualName};
+    use markup5ever::{namespace_url, ns};
+    let name = QualName::new(None, ns!(html), LocalName::from(tag.as_ref()));
+    let element = NodeRef::new_element(name, std::iter::empty());
+    element.append(NodeRef::new_text(content));
+    element
+}
+
 pub struct Document {
-    output: Vec<u8>,
+    dom: NodeRef,
 }
 
 impl Document {
     /// Parse and process a document from string.
     #[throws(_)]
     pub fn parse(input: &str) -> Self {
-        let mut doc = Self::default();
+        let mut doc = Self {
+            dom: NodeRef::new_document(),
+        };
         doc.process(input)?;
         doc.post_process()?;
         doc
@@ -41,7 +51,9 @@ impl Document {
     #[doc(hidden)]
     #[throws(_)]
     pub fn parse_without_post_process(input: &str) -> Self {
-        let mut doc = Self::default();
+        let mut doc = Self {
+            dom: NodeRef::new_document(),
+        };
         doc.process(input)?;
         doc
     }
@@ -58,7 +70,7 @@ impl Document {
                     self.add_paragraph(pair.into_inner())?;
                 }
                 Rule::tag => {
-                    self.add_tag(pair.as_str())?;
+                    self.add_html(pair.as_str())?;
                 }
                 _ => panic!("unexpceted token {:#?}", pair),
             }
@@ -67,28 +79,22 @@ impl Document {
 
     #[throws(_)]
     fn post_process(&mut self) {
-        let dom = parse_html()
-            .from_utf8()
-            .read_from(&mut io::Cursor::new(&mut self.output))?;
-        for node_data in dom.select("h2").unwrap() {
+        for node_data in self.dom.select("h2").unwrap() {
             let element = node_data.as_node().as_element().unwrap();
             element
                 .attributes
                 .borrow_mut()
                 .insert("class", "subtitle".to_owned());
         }
-        // Serialize dom.
-        self.output.clear();
-        for node_data in dom.select("body > *").unwrap() {
-            node_data.as_node().serialize(&mut self.output)?;
-            self.output.push(b'\n');
-        }
     }
 
     /// Write the resulting html into the IO stream.
     #[throws(_)]
     pub fn to_writer<W: Write>(&self, writer: &mut W) {
-        writer.write_all(&self.output)?;
+        for node in self.dom.children() {
+            node.serialize(writer)?;
+            writer.write_all(&[b'\n'])?;
+        }
     }
 
     #[throws(_)]
@@ -112,22 +118,26 @@ impl Document {
                 _ => panic!("unexpceted token {:#?}", pair),
             }
         }
-        self.output
-            .write_all(format!("<{}>{}</{}>\n", tag, text, tag).as_bytes())?;
+        self.dom.append(new_element(tag, text));
     }
 
     #[throws(_)]
     fn add_paragraph<'i>(&mut self, lines: Pairs<'i, Rule>) {
         let lines: Vec<String> = lines.map(|line| escape(line.as_str())).collect();
         let paragraph = lines.join(" ");
-        self.output
-            .write_all(format!("<p>{}</p>\n", paragraph).as_bytes())?;
+        self.dom.append(new_element("p", paragraph));
     }
 
     #[throws(_)]
-    fn add_tag(&mut self, tag: &str) {
-        self.output.write_all(tag.as_bytes())?;
-        self.output.write_all(b"\n")?;
+    fn add_html(&mut self, mut html: &str) {
+        let doc = parse_html()
+            .from_utf8()
+            .read_from(&mut io::Cursor::new(&mut html))?;
+        for head_body in doc.first_child().unwrap().children() {
+            for element in head_body.children() {
+                self.dom.append(element);
+            }
+        }
     }
 }
 
