@@ -1,5 +1,4 @@
 use fehler::throws;
-use htmlescape::encode_minimal;
 use kuchiki::traits::TendrilSink;
 use kuchiki::{parse_html, NodeRef};
 use lazy_static::lazy_static;
@@ -16,11 +15,11 @@ const _: &[u8] = include_bytes!("grammar.pest");
 #[grammar = "grammar.pest"]
 struct Grammar;
 
-fn escape(string: &str) -> String {
+fn clean_whitespace(string: &str) -> String {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"\s+").unwrap();
     }
-    encode_minimal(&RE.replace(string.trim(), " ").to_string())
+    RE.replace(string.trim(), " ").to_string()
 }
 
 fn new_element<T: AsRef<str>, C: Into<String>>(tag: T, content: C) -> NodeRef {
@@ -113,7 +112,7 @@ impl Document {
                     }
                 }
                 Rule::line => {
-                    text = escape(token);
+                    text = clean_whitespace(token);
                 }
                 _ => panic!("unexpceted token {:#?}", pair),
             }
@@ -123,7 +122,7 @@ impl Document {
 
     #[throws(_)]
     fn add_paragraph<'i>(&mut self, lines: Pairs<'i, Rule>) {
-        let lines: Vec<String> = lines.map(|line| escape(line.as_str())).collect();
+        let lines: Vec<String> = lines.map(|line| clean_whitespace(line.as_str())).collect();
         let paragraph = lines.join(" ");
         self.dom.append(new_element("p", paragraph));
     }

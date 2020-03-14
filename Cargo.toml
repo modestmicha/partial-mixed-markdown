@@ -8,7 +8,6 @@ build = "src/build.rs"
 [dependencies]
 anyhow = "1.0.26"
 fehler = "1.0.0-alpha.2"
-htmlescape = "0.3.1"
 kuchiki = "0.8.0"
 lazy_static = "1.4.0"
 pest = "2.1.3"
